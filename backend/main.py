@@ -260,16 +260,14 @@ def get_result(usn: str):
 
     cur = conn.cursor()
 
-    cur.execute(
-        """
-        SELECT usn, name
-        FROM students
-        WHERE usn = %s
-        """,
-        (usn,)
-    )
+   usn = usn.strip().upper()
 
-    student = cur.fetchone()
+cur.execute(
+    "SELECT * FROM results WHERE UPPER(TRIM(usn)) = %s",
+    (usn,)
+)
+
+result = cur.fetchone()
 
     if not student:
 
