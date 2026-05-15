@@ -13,6 +13,7 @@ export default function Home() {
   // Upload PDF
 
   const uploadPDF = async () => {
+  alert("Upload button clicked");
 
     if (!file) {
       alert("Please select PDF");
