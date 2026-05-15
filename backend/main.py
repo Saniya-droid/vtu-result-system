@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
+import psycopg2.extras
 import pdfplumber
 import re
 import uvicorn
