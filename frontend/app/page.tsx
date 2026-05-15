@@ -1,20 +1,75 @@
+"use client";
+
+import { useState } from "react";
+
 export default function Home() {
+
+  const [file, setFile] = useState<File | null>(null);
+  const [usn, setUsn] = useState("");
+  const [result, setResult] = useState<any>(null);
+
+  const BACKEND_URL = "https://vtu-result-backend.onrender.com";
+
+  // Upload PDF
+
+  const uploadPDF = async () => {
+
+    if (!file) {
+      alert("Please select PDF");
+      return;
+    }
+
+    const formData = new FormData();
+
+    formData.append("file", file);
+
+    const response = await fetch(
+      `${BACKEND_URL}/upload-result`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+
+    alert(data.message);
+  };
+
+  // Search Result
+
+  const searchResult = async () => {
+
+    if (!usn) {
+      alert("Enter USN");
+      return;
+    }
+
+    const response = await fetch(
+      `${BACKEND_URL}/get-result/${usn}`
+    );
+
+    const data = await response.json();
+
+    setResult(data);
+  };
+
   return (
     <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-6">
 
-      <div className="bg-white shadow-xl rounded-2xl p-10 w-full max-w-2xl">
+      <div className="bg-white shadow-xl rounded-2xl p-10 w-full max-w-3xl">
 
         <h1 className="text-4xl font-bold text-center text-blue-700 mb-4">
           VTU Result Management System
         </h1>
 
         <p className="text-center text-gray-600 mb-8">
-          Upload VTU Result PDFs and Search Student Results
+          Upload VTU Result PDFs and Search Results
         </p>
 
-        {/* Upload Section */}
+        {/* Upload */}
 
-        <div className="mb-8">
+        <div className="mb-10">
 
           <h2 className="text-xl font-semibold mb-3">
             Upload Result PDF
@@ -22,18 +77,23 @@ export default function Home() {
 
           <input
             type="file"
+            accept=".pdf"
+            onChange={(e) =>
+              setFile(e.target.files?.[0] || null)
+            }
             className="w-full border p-3 rounded-lg"
           />
 
           <button
-            className="mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg w-full hover:bg-blue-700"
+            onClick={uploadPDF}
+            className="mt-4 bg-blue-600 text-white px-6 py-3 rounded-lg w-full"
           >
             Upload PDF
           </button>
 
         </div>
 
-        {/* Search Section */}
+        {/* Search */}
 
         <div>
 
@@ -44,16 +104,36 @@ export default function Home() {
           <input
             type="text"
             placeholder="Enter USN"
+            value={usn}
+            onChange={(e) => setUsn(e.target.value)}
             className="w-full border p-3 rounded-lg"
           />
 
           <button
-            className="mt-4 bg-green-600 text-white px-6 py-3 rounded-lg w-full hover:bg-green-700"
+            onClick={searchResult}
+            className="mt-4 bg-green-600 text-white px-6 py-3 rounded-lg w-full"
           >
             Search Result
           </button>
 
         </div>
+
+        {/* Result */}
+
+        {result && (
+
+          <div className="mt-10">
+
+            <h2 className="text-2xl font-bold mb-4">
+              Student Result
+            </h2>
+
+            <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto">
+              {JSON.stringify(result, null, 2)}
+            </pre>
+
+          </div>
+        )}
 
       </div>
 
