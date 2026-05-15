@@ -71,6 +71,7 @@ export default function Home() {
       const data = await response.json();
 
       setResult(data);
+      console.log(data);
 
       setMessage("Result fetched successfully");
 
