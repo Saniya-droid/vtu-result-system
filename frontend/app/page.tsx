@@ -20,31 +20,31 @@ export default function Home() {
       return;
     }
 
-    const formData = new FormData();
-
-    formData.append("file", file);
-
     try {
 
-     const response = await fetch(
-  `${BACKEND_URL}/upload-result`,
-  {
-    method: "POST",
-    body: formData,
-  }
-);
+      const formData = new FormData();
 
-if (!response.ok) {
-  throw new Error("Backend request failed");
-}
+      formData.append("file", file);
 
-const data = await response.json();
+      const response = await fetch(
+        `${BACKEND_URL}/upload-result`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await response.json();
 
       setMessage(data.message || "Result uploaded successfully");
 
-    } catch (error) {
+    } catch (error: any) {
 
-      setMessage(String(error));
+      setMessage(error.message || "Something went wrong");
 
     }
   };
@@ -64,40 +64,41 @@ const data = await response.json();
         `${BACKEND_URL}/get-result/${usn.toUpperCase()}`
       );
 
+      if (!response.ok) {
+        throw new Error("Student not found");
+      }
+
       const data = await response.json();
 
       setResult(data);
 
-      if (data.detail) {
-        setMessage("Student not found");
-      } else {
-        setMessage("Result fetched successfully");
-      }
+      setMessage("Result fetched successfully");
 
-    } catch (error) {
+    } catch (error: any) {
 
-      setMessage("Search failed");
+      setMessage(error.message || "Search failed");
 
     }
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6 flex justify-center items-start">
 
-      <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-4xl">
+    <main className="min-h-screen bg-gray-100 p-6 flex justify-center">
 
-        <h1 className="text-4xl font-bold text-center text-blue-800 mb-3">
+      <div className="bg-white shadow-2xl rounded-2xl p-10 w-full max-w-5xl">
+
+        <h1 className="text-4xl font-bold text-center text-blue-800 mb-4">
           VTU Result Management System
         </h1>
 
-        <p className="text-center text-gray-700 mb-8 text-lg">
+        <p className="text-center text-gray-700 text-lg mb-8">
           Upload VTU PDFs and Search Student Results
         </p>
 
-        {/* Message */}
+        {/* Popup Message */}
 
         {message && (
-          <div className="mb-6 bg-blue-100 border border-blue-400 text-blue-800 px-4 py-3 rounded-lg">
+          <div className="mb-6 bg-blue-100 border border-blue-400 text-blue-900 px-4 py-3 rounded-lg">
             {message}
           </div>
         )}
@@ -153,9 +154,9 @@ const data = await response.json();
 
         </div>
 
-        {/* Result Display */}
+        {/* Student Result */}
 
-        {result && !result.detail && (
+        {result && (
 
           <div className="bg-gray-50 border rounded-xl p-6">
 
@@ -163,7 +164,7 @@ const data = await response.json();
               Student Details
             </h2>
 
-            <div className="grid grid-cols-2 gap-4 mb-8 text-gray-900">
+            <div className="grid grid-cols-2 gap-4 text-gray-900 mb-8">
 
               <div>
                 <span className="font-bold">Name:</span> {result.name}
@@ -177,7 +178,7 @@ const data = await response.json();
 
             {/* Marks Table */}
 
-            {result.subjects && (
+            {result.subjects && result.subjects.length > 0 && (
 
               <table className="w-full border-collapse border border-gray-400">
 
@@ -201,7 +202,10 @@ const data = await response.json();
 
                   {result.subjects.map((subject: any, index: number) => (
 
-                    <tr key={index} className="text-center text-gray-900">
+                    <tr
+                      key={index}
+                      className="text-center text-gray-900"
+                    >
 
                       <td className="border border-gray-400 p-3">
                         {subject.subject}
