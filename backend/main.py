@@ -1,10 +1,14 @@
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+import psycopg2
 import pdfplumber
 import re
-import psycopg2
+import uvicorn
 
 app = FastAPI()
+
+# CORS
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -13,83 +17,73 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================
 # DATABASE CONNECTION
-# =========================
 
-conn = psycopg2.connect(
-    "postgresql://neondb_owner:npg_4Ht0WiOuEKIy@ep-muddy-hill-a1uquy4c-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-)
+DATABASE_URL = "postgresql://neondb_owner:npg_4Ht0WiOuEKIy@ep-muddy-hill-a1uquy4c-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
-# =========================
-# CREATE TABLES
-# =========================
+def get_db_connection():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
 
-cur = conn.cursor()
-
-cur.execute("""
-CREATE TABLE IF NOT EXISTS students (
-    usn VARCHAR PRIMARY KEY,
-    name VARCHAR
-);
-""")
-
-cur.execute("""
-CREATE TABLE IF NOT EXISTS results (
-    id SERIAL PRIMARY KEY,
-    usn VARCHAR,
-    subject_code VARCHAR,
-    subject_name VARCHAR,
-    internal_marks INT,
-    external_marks INT,
-    total_marks INT,
-    result VARCHAR
-);
-""")
-
-conn.commit()
-cur.close()
-
-# =========================
 # HOME ROUTE
-# =========================
 
 @app.get("/")
 def home():
     return {"message": "Backend Working"}
 
-# =========================
-# CLEAR DATABASE ROUTE
-# =========================
+# CREATE TABLE
 
-@app.delete("/clear-results")
-def clear_results():
+@app.get("/create-table")
+def create_table():
 
+    conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("DELETE FROM results")
-    cur.execute("DELETE FROM students")
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS results (
+            usn TEXT PRIMARY KEY,
+            name TEXT,
+            subjects JSONB
+        )
+    """)
 
     conn.commit()
 
     cur.close()
+    conn.close()
 
-    return {
-        "message": "Database Cleared Successfully"
-    }
+    return {"message": "Table created successfully"}
 
-# =========================
-# PDF UPLOAD ROUTE
-# =========================
+# CLEAR DATABASE
+
+@app.delete("/clear-results")
+def clear_results():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM results")
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {"message": "All results deleted successfully"}
+
+# UPLOAD PDF
 
 @app.post("/upload-result")
-async def upload_result(file: UploadFile):
+async def upload_result(file: UploadFile = File(...)):
 
-    cur = conn.cursor()
+    temp_file = f"temp_{file.filename}"
+
+    with open(temp_file, "wb") as f:
+        f.write(await file.read())
 
     text = ""
 
-    with pdfplumber.open(file.file) as pdf:
+    with pdfplumber.open(temp_file) as pdf:
 
         for page in pdf.pages:
 
@@ -98,35 +92,19 @@ async def upload_result(file: UploadFile):
             if extracted:
                 text += extracted + "\n"
 
-    # =========================
-    # EXTRACT STUDENT DETAILS
-    # =========================
+    # EXTRACT USN
 
-    usn_match = re.search(
-        r'University Seat Number\s*:\s*(\S+)',
-        text
-    )
+    usn_match = re.search(r'1[A-Z]{2}\d{2}[A-Z]{2}\d{3}', text)
 
-    name_match = re.search(
-        r'Student Name\s*:\s*(.+)',
-        text
-    )
+    usn = usn_match.group(0) if usn_match else "UNKNOWN"
 
-    if not usn_match or not name_match:
+    # EXTRACT NAME
 
-        cur.close()
+    name_match = re.search(r'Name\s*:\s*([A-Z\s]+)', text)
 
-        return {
-            "error": "Could not extract student details"
-        }
+    name = name_match.group(1).strip() if name_match else "UNKNOWN"
 
-    usn = usn_match.group(1).strip()
-
-    name = name_match.group(1).strip()
-
-    # =========================
-    # EXTRACT SUBJECTS
-    # =========================
+    # SUBJECTS
 
     subjects = []
 
@@ -134,187 +112,105 @@ async def upload_result(file: UploadFile):
 
     for line in lines:
 
-        parts = line.strip().split()
+        marks_match = re.search(r'([A-Z\s]+)\s+(\d{1,3})$', line)
 
-        if (
-            len(parts) >= 6 and
-            parts[0].startswith(
-                ("BCS", "BCSL", "BSCK", "BYOK", "BME")
-            )
-        ):
+        if marks_match:
 
-            try:
+            subject_name = marks_match.group(1).strip()
 
-                subject_code = parts[0]
+            marks = marks_match.group(2).strip()
 
-                result = parts[-2]
+            subjects.append({
+                "subject": subject_name,
+                "marks": marks
+            })
 
-                total_marks = int(parts[-3])
+    # STORE IN DATABASE
 
-                external_marks = int(parts[-4])
-
-                internal_marks = int(parts[-5])
-
-                subject_name = " ".join(parts[1:-5])
-
-                subjects.append({
-                    "subject_code": subject_code,
-                    "subject_name": subject_name,
-                    "internal_marks": internal_marks,
-                    "external_marks": external_marks,
-                    "total_marks": total_marks,
-                    "result": result
-                })
-
-            except:
-                continue
-
-    # =========================
-    # REMOVE DUPLICATES
-    # =========================
-
-    unique_subjects = {}
-
-    for subject in subjects:
-        unique_subjects[
-            subject["subject_code"]
-        ] = subject
-
-    subjects = list(unique_subjects.values())
-
-    # =========================
-    # INSERT STUDENT
-    # =========================
+    conn = get_db_connection()
+    cur = conn.cursor()
 
     cur.execute(
         """
-        INSERT INTO students (usn, name)
-        VALUES (%s, %s)
+        INSERT INTO results (usn, name, subjects)
+        VALUES (%s, %s, %s)
         ON CONFLICT (usn)
-        DO NOTHING
+        DO UPDATE SET
+        name = EXCLUDED.name,
+        subjects = EXCLUDED.subjects
         """,
-        (usn, name)
+        (usn, name, psycopg2.extras.Json(subjects))
     )
-
-    # =========================
-    # DELETE OLD RESULTS
-    # =========================
-
-    cur.execute(
-        """
-        DELETE FROM results
-        WHERE usn = %s
-        """,
-        (usn,)
-    )
-
-    # =========================
-    # INSERT SUBJECTS
-    # =========================
-
-    for subject in subjects:
-
-        cur.execute(
-            """
-            INSERT INTO results
-            (
-                usn,
-                subject_code,
-                subject_name,
-                internal_marks,
-                external_marks,
-                total_marks,
-                result
-            )
-
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                usn,
-                subject["subject_code"],
-                subject["subject_name"],
-                subject["internal_marks"],
-                subject["external_marks"],
-                subject["total_marks"],
-                subject["result"]
-            )
-        )
 
     conn.commit()
 
     cur.close()
+    conn.close()
 
     return {
-        "message": "Result Uploaded Successfully",
+        "message": "Result uploaded successfully",
         "usn": usn,
-        "name": name,
-        "subjects": subjects
+        "name": name
     }
 
-# =========================
-# GET RESULT ROUTE
-# =========================
+# GET RESULT
 
 @app.get("/get-result/{usn}")
 def get_result(usn: str):
 
+    conn = get_db_connection()
     cur = conn.cursor()
 
-   usn = usn.strip().upper()
-
-cur.execute(
-    "SELECT * FROM results WHERE UPPER(TRIM(usn)) = %s",
-    (usn,)
-)
-
-result = cur.fetchone()
-
-    if not student:
-
-        cur.close()
-
-        return {
-            "error": "Student not found"
-        }
+    usn = usn.strip().upper()
 
     cur.execute(
-        """
-        SELECT
-            subject_code,
-            subject_name,
-            internal_marks,
-            external_marks,
-            total_marks,
-            result
-
-        FROM results
-
-        WHERE usn = %s
-
-        ORDER BY subject_code
-        """,
+        "SELECT usn, name, subjects FROM results WHERE UPPER(TRIM(usn)) = %s",
         (usn,)
     )
 
-    results = cur.fetchall()
+    result = cur.fetchone()
 
     cur.close()
+    conn.close()
 
-    formatted_results = []
+    if result:
 
-    for row in results:
+        return {
+            "usn": result[0],
+            "name": result[1],
+            "subjects": result[2]
+        }
 
-        formatted_results.append({
-            "subject_code": row[0],
-            "subject_name": row[1],
-            "internal_marks": row[2],
-            "external_marks": row[3],
-            "total_marks": row[4],
-            "result": row[5]
+    return {"detail": "Student not found"}
+
+# ALL STUDENTS
+
+@app.get("/students")
+def get_students():
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT usn, name FROM results")
+
+    students = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    data = []
+
+    for student in students:
+
+        data.append({
+            "usn": student[0],
+            "name": student[1]
         })
 
-    return {
-        "usn": student[0],
-        "name": student[1],
-        "results": formatted_results
-    }
+    return data
+
+# RUN SERVER
+
+if __name__ == "__main__":
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
