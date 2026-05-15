@@ -26,15 +26,19 @@ export default function Home() {
 
     try {
 
-      const response = await fetch(
-        `${BACKEND_URL}/upload-result`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+     const response = await fetch(
+  `${BACKEND_URL}/upload-result`,
+  {
+    method: "POST",
+    body: formData,
+  }
+);
 
-      const data = await response.json();
+if (!response.ok) {
+  throw new Error("Backend request failed");
+}
+
+const data = await response.json();
 
       setMessage(data.message || "Result uploaded successfully");
 
