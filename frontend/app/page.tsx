@@ -60,7 +60,7 @@ export default function Home() {
       <div className="bg-white shadow-xl rounded-2xl p-10 w-full max-w-3xl">
 
         <h1 className="text-4xl font-bold text-center text-blue-700 mb-4">
-          VTU Result Management System
+          VTU RESULT SYSTEM TEST
         </h1>
 
         <p className="text-center text-gray-600 mb-8">
