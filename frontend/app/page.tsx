@@ -40,7 +40,7 @@ export default function Home() {
 
     } catch (error) {
 
-      setMessage("Upload failed");
+      setMessage(String(error));
 
     }
   };
