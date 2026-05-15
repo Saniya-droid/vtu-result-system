@@ -33,6 +33,7 @@ export default function Home() {
     );
 
     const data = await response.json();
+    alert(JSON.stringify(data));
 
     alert(data.message);
   };
