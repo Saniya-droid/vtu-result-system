@@ -99,7 +99,7 @@ async def upload_result(file: UploadFile = File(...)):
 
     usn_match = re.search(r'\b[0-9][A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{3}\b', text)
 
-    usn = usn_match.group(0) if usn_match else "UNKNOWN"
+    usn = usn_match.group(0).strip().upper() if usn_match else "UNKNOWN"
 
     # EXTRACT NAME
 
@@ -167,9 +167,14 @@ def get_result(usn: str):
     usn = usn.strip().upper()
 
     cur.execute(
-        "SELECT usn, name, subjects FROM results WHERE UPPER(TRIM(usn)) = %s",
-        (usn,)
-    )
+    """
+    SELECT usn, name, subjects
+    FROM results
+    WHERE REPLACE(UPPER(TRIM(usn)), ' ', '') =
+          REPLACE(UPPER(TRIM(%s)), ' ', '')
+    """,
+    (usn,)
+)
 
     result = cur.fetchone()
 
