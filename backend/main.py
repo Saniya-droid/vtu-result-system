@@ -141,7 +141,7 @@ async def upload_result(file: UploadFile = File(...)):
         name = EXCLUDED.name,
         subjects = EXCLUDED.subjects
         """,
-        (usn, name, (str(subjects))
+        (usn, name, str(subjects))
     )
 
     conn.commit()
