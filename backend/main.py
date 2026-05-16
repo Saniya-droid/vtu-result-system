@@ -1,7 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
-import psycopg2.extras
 import pdfplumber
 import re
 import uvicorn
@@ -40,11 +39,13 @@ def create_table():
     conn = get_db_connection()
     cur = conn.cursor()
 
+    cur.execute("DROP TABLE IF EXISTS results")
+
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS results (
+        CREATE TABLE results (
             usn TEXT PRIMARY KEY,
             name TEXT,
-            subjects JSONB
+            subjects TEXT
         )
     """)
 
@@ -53,7 +54,7 @@ def create_table():
     cur.close()
     conn.close()
 
-    return {"message": "Table created successfully"}
+    return {"message": "Table recreated successfully"}
 
 # CLEAR DATABASE
 
@@ -140,7 +141,7 @@ async def upload_result(file: UploadFile = File(...)):
         name = EXCLUDED.name,
         subjects = EXCLUDED.subjects
         """,
-        (usn, name, psycopg2.extras.Json(subjects))
+        (usn, name, (str(subjects))
     )
 
     conn.commit()
