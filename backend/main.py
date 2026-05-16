@@ -93,11 +93,15 @@ async def upload_result(file: UploadFile = File(...)):
 
             if extracted:
                 text += extracted + "\n"
-                print(text)
+
+    print(text)
 
     # EXTRACT USN
 
-    usn_match = re.search(r'\b[0-9][A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{3}\b', text)
+    usn_match = re.search(
+        r'\b[0-9][A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{3}\b',
+        text
+    )
 
     usn = usn_match.group(0).strip().upper() if usn_match else "UNKNOWN"
 
@@ -108,33 +112,34 @@ async def upload_result(file: UploadFile = File(...)):
     name = name_match.group(1).strip() if name_match else "UNKNOWN"
 
     # SUBJECTS
-    print(subjects)
 
     subjects = []
 
     lines = text.split("\n")
 
-   for line in lines:
+    for line in lines:
 
-    line = line.strip()
+        line = line.strip()
 
-    if len(line) < 5:
-        continue
+        if len(line) < 5:
+            continue
 
-    marks_match = re.search(r'(\d{1,3})', line)
+        marks_match = re.search(r'(\d{1,3})', line)
 
-    if marks_match:
+        if marks_match:
 
-        marks = marks_match.group(1)
+            marks = marks_match.group(1)
 
-        subject_name = re.sub(r'\d+', '', line).strip()
+            subject_name = re.sub(r'\d+', '', line).strip()
 
-        if len(subject_name) > 2:
+            if len(subject_name) > 2:
 
-            subjects.append({
-                "subject": subject_name,
-                "marks": marks
-            })
+                subjects.append({
+                    "subject": subject_name,
+                    "marks": marks
+                })
+
+    print(subjects)
 
     # STORE IN DATABASE
 
@@ -161,7 +166,8 @@ async def upload_result(file: UploadFile = File(...)):
     return {
         "message": "Result uploaded successfully",
         "usn": usn,
-        "name": name
+        "name": name,
+        "subjects": subjects
     }
 
 # GET RESULT
@@ -175,14 +181,14 @@ def get_result(usn: str):
     usn = usn.strip().upper()
 
     cur.execute(
-    """
-    SELECT usn, name, subjects
-    FROM results
-    WHERE REPLACE(UPPER(TRIM(usn)), ' ', '') =
-          REPLACE(UPPER(TRIM(%s)), ' ', '')
-    """,
-    (usn,)
-)
+        """
+        SELECT usn, name, subjects
+        FROM results
+        WHERE REPLACE(UPPER(TRIM(usn)), ' ', '') =
+              REPLACE(UPPER(TRIM(%s)), ' ', '')
+        """,
+        (usn,)
+    )
 
     result = cur.fetchone()
 
