@@ -96,7 +96,7 @@ async def upload_result(file: UploadFile = File(...)):
 
     # EXTRACT USN
 
-    usn_match = re.search(r'1[A-Z]{2}\d{2}[A-Z]{2}\d{3}', text)
+    usn_match = re.search(r'\b[0-9][A-Z]{2}[0-9]{2}[A-Z]{2}[0-9]{3}\b', text)
 
     usn = usn_match.group(0) if usn_match else "UNKNOWN"
 
