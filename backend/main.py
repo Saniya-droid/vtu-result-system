@@ -93,6 +93,7 @@ async def upload_result(file: UploadFile = File(...)):
 
             if extracted:
                 text += extracted + "\n"
+                print(text)
 
     # EXTRACT USN
 
