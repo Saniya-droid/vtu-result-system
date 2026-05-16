@@ -108,20 +108,28 @@ async def upload_result(file: UploadFile = File(...)):
     name = name_match.group(1).strip() if name_match else "UNKNOWN"
 
     # SUBJECTS
+    print(subjects)
 
     subjects = []
 
     lines = text.split("\n")
 
-    for line in lines:
+   for line in lines:
 
-        marks_match = re.search(r'([A-Z\s]+)\s+(\d{1,3})$', line)
+    line = line.strip()
 
-        if marks_match:
+    if len(line) < 5:
+        continue
 
-            subject_name = marks_match.group(1).strip()
+    marks_match = re.search(r'(\d{1,3})', line)
 
-            marks = marks_match.group(2).strip()
+    if marks_match:
+
+        marks = marks_match.group(1)
+
+        subject_name = re.sub(r'\d+', '', line).strip()
+
+        if len(subject_name) > 2:
 
             subjects.append({
                 "subject": subject_name,
